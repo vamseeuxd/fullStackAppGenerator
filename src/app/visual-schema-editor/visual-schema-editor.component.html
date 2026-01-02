@@ -1,0 +1,188 @@
+<div class="visual-editor">
+  <mat-toolbar color="primary" class="toolbar">
+    <mat-toolbar-row>
+      <span class="title">Database Schema Designer</span>
+      <span class="spacer"></span>
+      <button mat-raised-button color="accent" (click)="addTable()">
+        <mat-icon>add</mat-icon> Add Table
+      </button>
+      <button mat-raised-button color="warn" [disabled]="!selectedTable()" (click)="deleteSelectedTable()">
+        <mat-icon>delete</mat-icon> Delete
+      </button>
+      <button mat-raised-button [disabled]="!selectedTable()" (click)="addColumn()">
+        <mat-icon>view_column</mat-icon> Add Column
+      </button>
+      <button mat-raised-button [disabled]="!selectedTable()" (click)="addRelationship()">
+        <mat-icon>link</mat-icon> Add Relation
+      </button>
+      <button mat-icon-button [disabled]="!canUndo()" (click)="undo()" matTooltip="Undo">
+        <mat-icon>undo</mat-icon>
+      </button>
+      <button mat-icon-button [disabled]="!canRedo()" (click)="redo()" matTooltip="Redo">
+        <mat-icon>redo</mat-icon>
+      </button>
+      <button mat-icon-button (click)="saveToLocalStorage()" matTooltip="Save">
+        <mat-icon>save</mat-icon>
+      </button>
+      <button mat-icon-button (click)="exportSchema()" matTooltip="Export JSON">
+        <mat-icon>download</mat-icon>
+      </button>
+      <button mat-icon-button (click)="generateSQL()" matTooltip="Generate SQL">
+        <mat-icon>code</mat-icon>
+      </button>
+      <button mat-icon-button color="warn" (click)="clearSchema()" matTooltip="Clear All">
+        <mat-icon>clear_all</mat-icon>
+      </button>
+    </mat-toolbar-row>
+  </mat-toolbar>
+
+  <div class="main-content" (keydown)="onKeyDown($event)" tabindex="0">
+    <div class="canvas-container">
+      <canvas #canvas 
+              (mousedown)="onCanvasMouseDown($event)"
+              (mousemove)="onCanvasMouseMove($event)"
+              (mouseup)="onCanvasMouseUp()"
+              class="diagram-canvas">
+      </canvas>
+    </div>
+
+    <div class="properties-panel-container">
+      <mat-card class="properties-panel">
+        <mat-card-header>
+          @if (selectedTable()?.tableName) {
+            <mat-card-title>{{selectedTable()?.tableName}} Table Properties</mat-card-title>
+          }@else {
+            <mat-card-title>No table selected</mat-card-title>
+          }
+        </mat-card-header>
+        
+        <mat-card-content *ngIf="selectedTable(); else noSelection">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Table Name</mat-label>
+            <input matInput [value]="selectedTable()?.tableName" 
+                   (input)="updateTableName(selectedTable()!, $event)">
+            <mat-icon matSuffix>table_chart</mat-icon>
+          </mat-form-field>
+
+          <div style="max-height: calc(100dvh - 280px);overflow-y: auto;">
+            <mat-expansion-panel expanded>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>view_column</mat-icon>
+                  Columns ({{selectedTable()?.columns?.length || 0}})
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              
+              @for (column of selectedTable()?.columns; track column.name; let i = $index) {
+                <mat-card class="column-card">
+                  <div class="column-row">
+                    <div class="full-width">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Column Name</mat-label>
+                        <input matInput [(ngModel)]="column.name" (ngModelChange)="onColumnChange()">
+                      </mat-form-field>
+                    </div>
+                    
+                    <div class="full-width">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Data Type</mat-label>
+                        <mat-select [(ngModel)]="column.type" (ngModelChange)="onColumnChange()">
+                          <mat-option value="INTEGER">INTEGER</mat-option>
+                          <mat-option value="VARCHAR(50)">VARCHAR(50)</mat-option>
+                          <mat-option value="VARCHAR(100)">VARCHAR(100)</mat-option>
+                          <mat-option value="VARCHAR(255)">VARCHAR(255)</mat-option>
+                          <mat-option value="TEXT">TEXT</mat-option>
+                          <mat-option value="TIMESTAMP">TIMESTAMP</mat-option>
+                          <mat-option value="BOOLEAN">BOOLEAN</mat-option>
+                          <mat-option value="DECIMAL">DECIMAL</mat-option>
+                          <mat-option value="DATE">DATE</mat-option>
+                          <mat-option value="TIME">TIME</mat-option>
+                          <mat-option value="FLOAT">FLOAT</mat-option>
+                          <mat-option value="DOUBLE">DOUBLE</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    
+                    <mat-checkbox [checked]="selectedTable()?.primaryKey?.includes(column.name) || false"
+                                 (change)="selectedTable() && togglePrimaryKey(selectedTable()!, column.name)"
+                                 color="primary">
+                      Primary Key
+                    </mat-checkbox>
+                    
+                    <button mat-icon-button color="warn" (click)="deleteColumn(i)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </mat-card>
+              }
+            </mat-expansion-panel>
+  
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>link</mat-icon>
+                  Relationships ({{selectedTable()?.relationships?.length || 0}})
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              
+              @for (rel of selectedTable()?.relationships; track $index; let i = $index) {
+                <mat-card class="relationship-card">
+                  <div class="relationship-row">
+                    <div class="full-width">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Type</mat-label>
+                        <mat-select [(ngModel)]="rel.type" (ngModelChange)="onRelationshipChange()">
+                          <mat-option value="ONE-TO-ONE">One to One</mat-option>
+                          <mat-option value="ONE-TO-MANY">One to Many</mat-option>
+                          <mat-option value="MANY-TO-ONE">Many to One</mat-option>
+                          <mat-option value="MANY-TO-MANY">Many to Many</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    
+                    <div class="full-width">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Foreign Key</mat-label>
+                        <mat-select [(ngModel)]="rel.foreignKey" (ngModelChange)="onRelationshipChange()">
+                          @for (col of selectedTable()?.columns; track col.name) {
+                            <mat-option [value]="col.name">{{col.name}}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+  
+                    <div style="width: 100%;">
+                      <mat-form-field appearance="outline" style="width: 100%;">
+                        <mat-label>References Table</mat-label>
+                        <mat-select [(ngModel)]="rel.referencesTable" (ngModelChange)="onRelationshipChange()">
+                          @for (t of schema().tables; track t.tableName) {
+                            @if (t.tableName !== selectedTable()?.tableName) {
+                              <mat-option [value]="t.tableName">{{t.tableName}}</mat-option>
+                            }
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    
+                    
+                    <button mat-icon-button color="warn" (click)="deleteRelationship(i)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </mat-card>
+              }
+            </mat-expansion-panel>
+          </div>
+
+
+        </mat-card-content>
+        
+        <ng-template #noSelection>
+          <mat-card-content>
+            <p class="no-selection-message">Select a table to view and edit its properties</p>
+          </mat-card-content>
+        </ng-template>
+      </mat-card>
+    </div>
+  </div>
+</div>

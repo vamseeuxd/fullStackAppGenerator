@@ -1,0 +1,113 @@
+<div class="schema-editor">
+  <div class="header">
+    <h2>Database Schema Editor</h2>
+    <input [(ngModel)]="schema().schemaName" placeholder="Schema Name" class="schema-name">
+    <button (click)="addTable()" class="btn-primary">Add Table</button>
+  </div>
+
+  <div class="editor-layout">
+    <div class="tables-panel">
+      <h3>Tables</h3>
+      <div class="table-list">
+        @for (table of schema().tables; track table.tableName; let i = $index) {
+          <div class="table-item" [class.selected]="selectedTable() === table">
+            <input [(ngModel)]="table.tableName" class="table-name">
+            <button (click)="selectTable(table)" class="btn-select">Edit</button>
+            <button (click)="deleteTable(i)" class="btn-danger">×</button>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="editor-panel">
+      @if (selectedTable(); as table) {
+        <div class="table-editor">
+          <h3>Editing: {{table.tableName}}</h3>
+          
+          <div class="columns-section">
+            <div class="section-header">
+              <h4>Columns</h4>
+              <button (click)="addColumn()" class="btn-primary">Add Column</button>
+            </div>
+            
+            @for (column of table.columns; track column.name; let i = $index) {
+              <div class="column-row">
+                <input [(ngModel)]="column.name" placeholder="Column name" class="column-name">
+                <select [(ngModel)]="column.type" class="column-type">
+                  @for (type of dataTypes; track type) {
+                    <option [value]="type">{{type}}</option>
+                  }
+                </select>
+                
+                <div class="constraints">
+                  @for (constraint of constraints; track constraint) {
+                    <label class="constraint-checkbox">
+                      <input type="checkbox" 
+                             [checked]="hasConstraint(column, constraint)"
+                             (change)="toggleConstraint(column, constraint)">
+                      {{constraint}}
+                    </label>
+                  }
+                </div>
+                
+                <button (click)="deleteColumn(i)" class="btn-danger">×</button>
+              </div>
+            }
+          </div>
+
+          <div class="relationships-section">
+            <div class="section-header">
+              <h4>Relationships</h4>
+              <button (click)="addRelationship()" class="btn-primary">Add Relationship</button>
+            </div>
+            
+            @for (rel of table.relationships; track $index; let i = $index) {
+              <div class="relationship-row">
+                <select [(ngModel)]="rel.type" class="rel-type">
+                  @for (type of relationshipTypes; track type) {
+                    <option [value]="type">{{type}}</option>
+                  }
+                </select>
+                
+                <select [(ngModel)]="rel.foreignKey" class="foreign-key">
+                  @for (col of table.columns; track col.name) {
+                    <option [value]="col.name">{{col.name}}</option>
+                  }
+                </select>
+                
+                <select [(ngModel)]="rel.referencesTable" class="ref-table">
+                  @for (tableName of getAvailableTables(); track tableName) {
+                    <option [value]="tableName">{{tableName}}</option>
+                  }
+                </select>
+                
+                <select [(ngModel)]="rel.referencesColumn" class="ref-column">
+                  @for (col of getAvailableColumns(rel.referencesTable); track col) {
+                    <option [value]="col">{{col}}</option>
+                  }
+                </select>
+                
+                <select [(ngModel)]="rel.onDelete" class="ref-action">
+                  @for (action of referentialActions; track action) {
+                    <option [value]="action">{{action}}</option>
+                  }
+                </select>
+                
+                <button (click)="deleteRelationship(i)" class="btn-danger">×</button>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="no-selection">
+          <p>Select a table to edit</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="export-section">
+    <h4>Export Schema</h4>
+    <textarea [value]="exportSchema()" readonly class="export-textarea"></textarea>
+  </div>
+</div>
